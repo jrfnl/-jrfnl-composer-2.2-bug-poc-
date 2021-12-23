@@ -1,0 +1,50 @@
+name: Test
+
+on:
+  # Run on pushes to select branches and on all pull requests.
+  push:
+
+jobs:
+  poc:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.0'
+            composer: '2.1.14'
+
+          - php: '8.0'
+            composer: '2.2.1'
+
+    name: "PHP ${{ matrix.php }} | Composer ${{ matrix.composer }}"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:${{ matrix.composer }}
+
+      - name: Composer diagnose
+        continue-on-error: true
+        run: composer diagnose
+
+      - name: Conditionally require a higher PHPUnit version
+        if: matrix.php >= '7.4'
+        run: composer require --dev phpunit/phpunit:"^7.5" --no-update --ignore-platform-req=php -vvv
+
+      - name: Install Composer dependencies with PHP >= 8.0
+        if: matrix.php >= '7.4'
+        uses: ramsey/composer-install@v1
+        with:
+          # Force a `composer update` run.
+          dependency-versions: "highest"
+          # But make it selective.
+          composer-options: "yoast/wp-test-utils phpunit/phpunit --with-dependencies --ignore-platform-req=php -vvv"
+          # This effectively runs:
+          # composer update yoast/wp-test-utils phpunit/phpunit --with-dependencies --ignore-platform-req=php -vvv
